@@ -2,18 +2,16 @@ source "http://rubygems.org"
 
 gem "redis"
 gem "redis-namespace"
-gem 'httparty', '~> 0.8.3'
+gem 'httparty'
 gem 'activesupport'
 gem 'dalli'
 
 group :development do
   gem "shoulda"
-  gem "bundler", "~> 1.0"
-  gem "jeweler", "~> 1.6"
-  gem "rcov", :platforms => :ruby_18
+  gem "bundler"
+  gem "jeweler"
   gem "webmock"
-  gem 'vcr', '~> 1.11'
+  gem 'vcr'
   gem 'mocha'
-  gem 'rake', '~> 0.8.7'
-  gem 'SystemTimer', :platforms => :ruby_18
+  gem 'rake'
 end
