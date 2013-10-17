@@ -83,7 +83,7 @@ module HTTParty
     end
 
     def response_from(response_body)
-      HTTParty::Response.new(self, OpenStruct.new(:body => response_body), lambda {parse_response(response_body)})
+      HTTParty::Response.new(self, OpenStruct.new(:body => response_body, :code => 200), lambda {parse_response(response_body)})
     end
 
     def retrieve_and_store_backup(httparty_response = nil)
@@ -143,7 +143,7 @@ module HTTParty
     end
 
     def exceptions
-      if (RUBY_VERSION.split('.')[1].to_i >= 9) && defined?(Psych::SyntaxError)
+      if (RUBY_VERSION >= '1.9') && defined?(Psych::SyntaxError)
         [StandardError, Timeout::Error, Psych::SyntaxError]
       else
         [StandardError, Timeout::Error]
