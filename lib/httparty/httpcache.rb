@@ -134,7 +134,7 @@ module HTTParty
     end
 
     def timeout(seconds, &block)
-      if defined?(SystemTimer)
+      if defined?(SystemTimer) && RUBY_VERSION.split('.').first.to_i < 2
         SystemTimer.timeout_after(seconds, &block)
       else
         options[:timeout] = seconds
