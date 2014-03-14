@@ -59,6 +59,9 @@ module HTTParty
               store_in_cache(httparty_response.body)
               store_backup(httparty_response.body)
               httparty_response
+            elsif httparty_response.response.is_a?(Net::HTTPNotFound)
+              log_message("Resource not found")
+              perform_without_caching
             else
               retrieve_and_store_backup(httparty_response)
             end
