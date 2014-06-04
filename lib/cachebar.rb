@@ -8,6 +8,8 @@ require 'active_support/core_ext/class/attribute'
 require 'active_support/core_ext/object/blank'
 require 'active_support/core_ext/string/inflections'
 require 'active_support/core_ext/module/delegation'
+require 'active_support/core_ext/hash/indifferent_access'
+
 if RUBY_VERSION < '1.9'
   begin
     require 'system_timer'

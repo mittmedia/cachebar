@@ -6,15 +6,15 @@ module CacheBar
         "api-cache:backup:#{api_name}:#{uri_hash}"
       end
 
-      def response_body_exists?
+      def response_exists?
         !client.get(cache_key_name).nil?
       end
       
-      def get_response_body
+      def get_response
         client.get(cache_key_name)
       end
       
-      def store_response_body(response_body, interval)
+      def store_response(response_body, interval)
         client.set(cache_key_name, response_body, interval)
       end
       
@@ -28,6 +28,10 @@ module CacheBar
       
       def store_backup(response_body)
         client.set(backup_key_name, response_body)
+      end
+
+      def update_async(url, interval)
+
       end
     end
   end

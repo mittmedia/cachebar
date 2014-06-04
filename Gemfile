@@ -5,6 +5,7 @@ gem "redis-namespace"
 gem 'httparty'
 gem 'activesupport'
 gem 'dalli'
+gem 'resque'
 
 group :development do
   gem "shoulda"

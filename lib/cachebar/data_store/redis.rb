@@ -1,16 +1,17 @@
+require 'resque'
 module CacheBar
   module DataStore
     class Redis < AbstractDataStore
-      def response_body_exists?
+      def response_exists?
         client.exists(cache_key_name)
       end
       
-      def get_response_body
-        client.get(cache_key_name)
+      def get_response
+        JSON.parse(client.get(cache_key_name), symbolize_names: true)
       end
       
-      def store_response_body(response_body, interval)
-        client.set(cache_key_name, response_body)
+      def store_response(response_hash, interval)
+        client.set(cache_key_name, response_hash.to_json)
         client.expire(cache_key_name, interval)
       end
       
@@ -19,11 +20,29 @@ module CacheBar
       end
       
       def get_backup
-        client.hget(backup_key_name, uri_hash)
+        JSON.parse(client.hget(backup_key_name, uri_hash), symbolize_names: true)
       end
       
-      def store_backup(response_body)
-        client.hset(backup_key_name, uri_hash, response_body)
+      def store_backup(response_hash)
+        client.hset(backup_key_name, uri_hash, response_hash.to_json)
+      end
+
+      def update_async(url, interval)
+        Rails.logger.debug("Update async #{cache_key_name}-#{url}")
+        Resque.enqueue(UpdateRedisCache, cache_key_name, backup_key_name, uri_hash, url, interval)
+
+      end
+
+      class UpdateRedisCache
+        @queue = :update_redis_cache
+        def self.perform(cache_key_name, backup_key_name, uri_hash, url, interval)
+          Resque.logger.info "Updating #{url}"
+          response_body = HTTParty.get(url, {cache: false}).parsed_response
+          #Resque.logger.info "Response #{parsed_response}"
+          #client.set(cache_key_name, response_body)
+          #client.expire(cache_key_name, interval)
+          #client.hset(backup_key_name, uri_hash, response_body)
+        end
       end
     end
   end

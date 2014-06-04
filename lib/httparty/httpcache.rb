@@ -3,6 +3,7 @@ module HTTParty
     class NoResponseError < StandardError; end
 
     mattr_accessor  :perform_caching, 
+                    :grace,
                     :apis,
                     :logger, 
                     :redis,
@@ -13,12 +14,13 @@ module HTTParty
     mattr_reader :data_store_class
 
     self.perform_caching = false
+    self.grace = false
     self.apis = {}
     self.timeout_length = 5 # 5 seconds
     self.cache_stale_backup_time = 300 # 5 minutes
 
-    delegate :response_body_exists?,
-             :get_response_body,
+    delegate :response_exists?,
+             :get_response,
              :backup_exists?,
              :get_backup,
              :store_backup,
@@ -44,9 +46,13 @@ module HTTParty
 
     def perform_with_caching
       if cacheable?
-        if response_body_exists?
+        if response_exists?
           log_message("Retrieving response from cache")
-          response_from(get_response_body)
+          response_from(get_response)
+        elsif graceable?
+          log_message("Backup exists")
+          update_cache_async
+          response_from(get_backup)
         else
           validate
           begin
@@ -56,12 +62,15 @@ module HTTParty
             httparty_response.parsed_response
             if httparty_response.response.is_a?(Net::HTTPSuccess)
               log_message("Storing good response in cache")
-              store_in_cache(httparty_response.body)
-              store_backup(httparty_response.body)
+              store_in_cache({code: httparty_response.code, body: httparty_response.body})
+              store_backup({code: httparty_response.code, body: httparty_response.body})
               httparty_response
             elsif httparty_response.response.is_a?(Net::HTTPNotFound)
               log_message("Resource not found")
-              perform_without_caching
+              log_message("Storing 404 response in cache")
+              store_in_cache({code: httparty_response.code, body: httparty_response.body})
+              store_backup({code: httparty_response.code, body: httparty_response.body})
+              httparty_response
             else
               retrieve_and_store_backup(httparty_response)
             end
@@ -85,16 +94,21 @@ module HTTParty
         http_method == Net::HTTP::Get
     end
 
-    def response_from(response_body)
-      HTTParty::Response.new(self, OpenStruct.new(:body => response_body, :code => 200), lambda {parse_response(response_body)})
+    def graceable?
+      log_message("cache option: #{self.options[:cache]}")
+      HTTPCache.grace && backup_exists? && self.options[:cache] != false
+    end
+
+    def response_from(response_hash)
+      HTTParty::Response.new(self, OpenStruct.new(:body => response_hash[:body], :code => response_hash[:code]), lambda {parse_response(response_hash[:body])})
     end
 
     def retrieve_and_store_backup(httparty_response = nil)
       if backup_exists?
         log_message('using backup')
-        response_body = get_backup
-        store_in_cache(response_body, cache_stale_backup_time)
-        response_from(response_body)
+        response_hash = get_backup
+        store_in_cache({code: response_hash[:code], body: response_hash[:body]}, cache_stale_backup_time)
+        response_from(response_hash)
       elsif httparty_response
         httparty_response
       else
@@ -120,8 +134,12 @@ module HTTParty
       @uri_hash ||= Digest::MD5.hexdigest(normalized_uri)
     end
 
-    def store_in_cache(response_body, expires = nil)
-      data_store.store_response_body(response_body, (expires || HTTPCache.apis[uri.host][:expire_in]))
+    def store_in_cache(response_hash, expires = nil)
+      data_store.store_response(response_hash, (expires || HTTPCache.apis[uri.host][:expire_in]))
+    end
+
+    def update_cache_async(expires = nil)
+      data_store.update_async(normalized_uri, (expires || HTTPCache.apis[uri.host][:expire_in]))
     end
 
     def data_store

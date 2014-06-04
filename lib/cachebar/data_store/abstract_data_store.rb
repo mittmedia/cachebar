@@ -10,16 +10,16 @@ module CacheBar
         @uri_hash = uri_hash
       end
       
-      def response_body_exists?
-        raise NotImplementedError, 'Implement response_body_exists? in sub-class'
+      def response_exists?
+        raise NotImplementedError, 'Implement response_exists? in sub-class'
       end
       
-      def get_response_body
-        raise NotImplementedError, 'Implement get_response_body in sub-class'
+      def get_response
+        raise NotImplementedError, 'Implement get_response in sub-class'
       end
       
-      def store_response_body(response_body, interval)
-        raise NotImplementedError, 'Implement store_response_body in sub-class'
+      def store_response(response_body, interval)
+        raise NotImplementedError, 'Implement store_response in sub-class'
       end
       
       def backup_exists?
@@ -33,7 +33,11 @@ module CacheBar
       def store_backup(response_body)
         raise NotImplementedError, 'Implement store_backup in sub-class'
       end
-      
+
+      def update_async(url, interval)
+        raise NotImplementedError, 'Implement update_async in sub-class'
+      end
+
       private 
       
       def cache_key_name
