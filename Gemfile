@@ -16,3 +16,7 @@ group :development do
   gem 'mocha'
   gem 'rake'
 end
+
+group :test do
+  gem 'rspec'
+end

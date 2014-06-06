@@ -1,0 +1,46 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: https://api.twitter.com/1/statuses/bogus_timeline.json?screen_name=viget
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers: {}
+  response:
+    status:
+      code: 401
+      message: Unauthorized
+    headers:
+      Date:
+      - Tue, 24 May 2011 20:54:42 GMT
+      Server:
+      - hi
+      Status:
+      - 401 Unauthorized
+      Www-Authenticate:
+      - OAuth realm="https://api.twitter.com"
+      X-Runtime:
+      - '0.00250'
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '104'
+      Cache-Control:
+      - no-cache, max-age=300
+      Set-Cookie:
+      - _twitter_sess=BAh7CDoPY3JlYXRlZF9hdGwrCAHCySMwAToHaWQiJWY5NjUwZDk2OGZjYzM5%250AMmNhNjIxYjAxZmEyZTc5OWNmIgpmbGFzaElDOidBY3Rpb25Db250cm9sbGVy%250AOjpGbGFzaDo6Rmxhc2hIYXNoewAGOgpAdXNlZHsA--129022f5c334f13f162696a32a2af8bd1cd29313;
+        domain=.twitter.com; path=/; HttpOnly
+      - guest_id=13062704829444930; path=/; expires=Thu, 23 Jun 2011 20:54:42 GMT
+      - k=96.10.0.146.1306270482941465; path=/; expires=Tue, 31-May-11 20:54:42 GMT;
+        domain=.twitter.com
+      Expires:
+      - Tue, 24 May 2011 20:59:42 GMT
+      Vary:
+      - Accept-Encoding
+    body:
+      encoding: UTF-8
+      string: '{"error":"Could not authenticate you.","request":"\/1\/statuses\/bogus_timeline.json?screen_name=viget"}'
+    http_version: '1.1'
+  recorded_at: Thu, 17 Oct 2013 11:05:16 GMT
+recorded_with: VCR 2.9.2

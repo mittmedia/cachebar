@@ -1,5 +1,12 @@
 module HTTParty
   module HTTPCache
+    # TODO:
+    # * Add grace_timeout to backup
+    # * Add possibility to set array of Net::* response codes to cache
+    # * Add rdoc comments
+    # * Refactor perform_with_caching
+    # * Refactor retrieve_and_store_backup
+
     class NoResponseError < StandardError; end
 
     mattr_accessor  :perform_caching, 
@@ -23,7 +30,6 @@ module HTTParty
              :get_response,
              :backup_exists?,
              :get_backup,
-             :store_backup,
              :to => :data_store
 
     def self.included(base)
@@ -44,6 +50,7 @@ module HTTParty
       end
     end
 
+    #TODO: Refactor
     def perform_with_caching
       if cacheable?
         if response_exists?
@@ -63,13 +70,13 @@ module HTTParty
             if httparty_response.response.is_a?(Net::HTTPSuccess)
               log_message("Storing good response in cache")
               store_in_cache({code: httparty_response.code, body: httparty_response.body})
-              store_backup({code: httparty_response.code, body: httparty_response.body})
+              store_in_backup({code: httparty_response.code, body: httparty_response.body})
               httparty_response
             elsif httparty_response.response.is_a?(Net::HTTPNotFound)
               log_message("Resource not found")
               log_message("Storing 404 response in cache")
               store_in_cache({code: httparty_response.code, body: httparty_response.body})
-              store_backup({code: httparty_response.code, body: httparty_response.body})
+              store_in_backup({code: httparty_response.code, body: httparty_response.body})
               httparty_response
             else
               retrieve_and_store_backup(httparty_response)
@@ -87,11 +94,11 @@ module HTTParty
       end
     end
 
-    protected
+
     
     def cacheable?
-      HTTPCache.perform_caching && HTTPCache.apis.keys.include?(uri.host) &&
-        http_method == Net::HTTP::Get
+      #raise (HTTPCache.perform_caching && HTTPCache.apis.keys.include?(uri.host) && http_method == Net::HTTP::Get).inspect
+      HTTPCache.perform_caching && HTTPCache.apis.keys.include?(uri.host) && http_method == Net::HTTP::Get
     end
 
     def graceable?
@@ -103,6 +110,7 @@ module HTTParty
       HTTParty::Response.new(self, OpenStruct.new(:body => response_hash[:body], :code => response_hash[:code]), lambda {parse_response(response_hash[:body])})
     end
 
+    #TODO: Refactor
     def retrieve_and_store_backup(httparty_response = nil)
       if backup_exists?
         log_message('using backup')
@@ -138,6 +146,11 @@ module HTTParty
       data_store.store_response(response_hash, (expires || HTTPCache.apis[uri.host][:expire_in]))
     end
 
+    #TODO: This should get grace interval in future
+    def store_in_backup(response_hash)
+      data_store.store_backup(response_hash)
+    end
+
     def update_cache_async(expires = nil)
       data_store.update_async(normalized_uri, (expires || HTTPCache.apis[uri.host][:expire_in]))
     end
@@ -154,21 +167,15 @@ module HTTParty
       logger.info("[HTTPCache]: #{message} for #{normalized_uri} - #{uri_hash.inspect}") if logger
     end
 
+    # We could just include Timeout, but that would add a private #timeout and I like to see what's going on
     def timeout(seconds, &block)
-      if defined?(SystemTimer) && RUBY_VERSION.split('.').first.to_i < 2
-        SystemTimer.timeout_after(seconds, &block)
-      else
-        options[:timeout] = seconds
+      Timeout::timeout(seconds, Timeout::Error) do
         yield
       end
     end
 
     def exceptions
-      if (RUBY_VERSION >= '1.9') && defined?(Psych::SyntaxError)
-        [StandardError, Timeout::Error, Psych::SyntaxError]
-      else
-        [StandardError, Timeout::Error]
-      end
+      [StandardError, Timeout::Error]
     end
   end
 end

@@ -3,25 +3,6 @@ require 'helper'
 class TestCacheBar < Test::Unit::TestCase
   context 'CacheBar' do
 
-    context 'defining the data store' do
-      should 'be able to use a symbol of an existing pre-packaged data store' do
-        HTTParty::HTTPCache.data_store_class = :redis
-        assert_equal CacheBar::DataStore::Redis, HTTParty::HTTPCache.data_store_class
-      end
-      
-      should 'be able to use a class of an existing pre-packaged data store' do
-        class SampleDataStore; end
-        HTTParty::HTTPCache.data_store_class = SampleDataStore
-        assert_equal SampleDataStore, HTTParty::HTTPCache.data_store_class
-      end
-      
-      should 'raise exception if something else is passed in' do
-        assert_raise ArgumentError do
-          HTTParty::HTTPCache.data_store_class = 'data_store'
-        end
-      end
-    end
-
     context 'mocking redis' do
       setup do
         HTTParty::HTTPCache.data_store_class = :redis

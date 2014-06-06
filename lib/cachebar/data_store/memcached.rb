@@ -11,11 +11,11 @@ module CacheBar
       end
       
       def get_response
-        client.get(cache_key_name)
+        JSON.parse(client.get(cache_key_name), symbolize_names: true)
       end
       
-      def store_response(response_body, interval)
-        client.set(cache_key_name, response_body, interval)
+      def store_response(response_hash, interval)
+        client.set(cache_key_name, response_hash.to_json, interval)
       end
       
       def backup_exists?
@@ -23,15 +23,11 @@ module CacheBar
       end
       
       def get_backup
-        client.get(backup_key_name)
+        JSON.parse(client.get(backup_key_name), symbolize_names: true)
       end
       
-      def store_backup(response_body)
-        client.set(backup_key_name, response_body)
-      end
-
-      def update_async(url, interval)
-
+      def store_backup(response_hash)
+        client.set(backup_key_name, response_hash.to_json)
       end
     end
   end
