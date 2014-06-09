@@ -27,15 +27,8 @@ module CacheBar::DataStore
       end
 
       describe '#store_response' do
-        it 'store data in redis' do
-          expect(@client).to receive(:set).with("api-cache:twitter:URIHASH", {code: 200, body: ""}.to_json).and_return(true)
-          expect(@client).to receive(:expire).and_return(true)
-          @datastore.store_response({code: 200, body: ""}, 10)
-        end
-
-        it 'sets expires on cache key' do
-          expect(@client).to receive(:set).and_return(true)
-          expect(@client).to receive(:expire).with("api-cache:twitter:URIHASH", 10).and_return(true)
+        it 'store data in redis and sets expires on cache key' do
+          expect(@client).to receive(:setex).with("api-cache:twitter:URIHASH", 10, {code: 200, body: ""}.to_json).and_return(true)
           @datastore.store_response({code: 200, body: ""}, 10)
         end
       end
@@ -75,7 +68,7 @@ module CacheBar::DataStore
       describe '#store_backup' do
         it 'stores the response in the backup hash' do
           expect(@client).to receive(:hset).with("api-cache:twitter", "URIHASH", {code:200, body:""}.to_json).and_return(true)
-          @datastore.store_backup({code:200, body:""})
+          @datastore.store_backup({code:200, body:""}, 10)
         end
       end
     end

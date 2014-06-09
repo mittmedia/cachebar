@@ -61,7 +61,7 @@ module CacheBar::DataStore
       describe '#store_backup' do
         it 'stores the response in the backup hash' do
           expect(@client).to receive(:set).with("api-cache:backup:twitter:URIHASH", {code:200, body:""}.to_json).and_return(true)
-          @datastore.store_backup({code:200, body:""})
+          @datastore.store_backup({code:200, body:""}, 10)
         end
       end
     end

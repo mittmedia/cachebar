@@ -23,7 +23,7 @@ class MockDataStore < CacheBar::DataStore::AbstractDataStore
 
   end
 
-  def store_backup(response_body)
+  def store_backup(response_body, interval)
 
   end
 
