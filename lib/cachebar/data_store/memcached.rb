@@ -26,7 +26,7 @@ module CacheBar
         JSON.parse(client.get(backup_key_name), symbolize_names: true)
       end
       
-      def store_backup(response_hash)
+      def store_backup(response_hash, interval)
         client.set(backup_key_name, response_hash.to_json)
       end
     end

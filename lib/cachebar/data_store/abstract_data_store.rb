@@ -18,7 +18,7 @@ module CacheBar
         raise NotImplementedError, 'Implement get_response in sub-class'
       end
       
-      def store_response(response_body, interval)
+      def store_response(response_hash, interval)
         raise NotImplementedError, 'Implement store_response in sub-class'
       end
       
@@ -30,7 +30,7 @@ module CacheBar
         raise NotImplementedError, 'Implement get_backup in sub-class'
       end
       
-      def store_backup(response_body)
+      def store_backup(response_hash, interval)
         raise NotImplementedError, 'Implement store_backup in sub-class'
       end
 

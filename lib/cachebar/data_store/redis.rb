@@ -11,8 +11,7 @@ module CacheBar
       end
       
       def store_response(response_hash, interval)
-        client.set(cache_key_name, response_hash.to_json)
-        client.expire(cache_key_name, interval)
+        client.setex(cache_key_name, interval, response_hash.to_json)
       end
       
       def backup_exists?
@@ -22,15 +21,14 @@ module CacheBar
       def get_backup
         JSON.parse(client.hget(backup_key_name, uri_hash), symbolize_names: true)
       end
-      
-      def store_backup(response_hash)
+
+      def store_backup(response_hash, interval)
         client.hset(backup_key_name, uri_hash, response_hash.to_json)
       end
 
       def update_async(url, interval)
         Rails.logger.debug("Update async #{cache_key_name}-#{url}")
         Resque.enqueue(UpdateRedisCache, cache_key_name, backup_key_name, uri_hash, url, interval)
-
       end
 
       class UpdateRedisCache
@@ -38,10 +36,6 @@ module CacheBar
         def self.perform(cache_key_name, backup_key_name, uri_hash, url, interval)
           Resque.logger.info "Updating #{url}"
           response_body = HTTParty.get(url, {cache: false}).parsed_response
-          #Resque.logger.info "Response #{parsed_response}"
-          #client.set(cache_key_name, response_body)
-          #client.expire(cache_key_name, interval)
-          #client.hset(backup_key_name, uri_hash, response_body)
         end
       end
     end

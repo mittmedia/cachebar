@@ -1,7 +1,6 @@
 module HTTParty
   module HTTPCache
     # TODO:
-    # * Add grace_timeout to backup
     # * Add possibility to set array of Net::* response codes to cache
     # * Add rdoc comments
     # * Refactor perform_with_caching
@@ -11,6 +10,7 @@ module HTTParty
 
     mattr_accessor  :perform_caching, 
                     :grace,
+                    :grace_expire_in,
                     :apis,
                     :logger, 
                     :redis,
@@ -22,6 +22,7 @@ module HTTParty
 
     self.perform_caching = false
     self.grace = false
+    self.grace_expire_in = 60 * 60 * 3
     self.apis = {}
     self.timeout_length = 5 # 5 seconds
     self.cache_stale_backup_time = 300 # 5 minutes
@@ -148,7 +149,7 @@ module HTTParty
 
     #TODO: This should get grace interval in future
     def store_in_backup(response_hash)
-      data_store.store_backup(response_hash)
+      data_store.store_backup(response_hash, HTTPCache.grace_expire_in)
     end
 
     def update_cache_async(expires = nil)
