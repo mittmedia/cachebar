@@ -34,7 +34,7 @@ module CacheBar
         raise NotImplementedError, 'Implement store_backup in sub-class'
       end
 
-      def update_async(url, interval)
+      def update_async(url, interval, headers)
         raise NotImplementedError, 'Implement update_async in sub-class'
       end
 

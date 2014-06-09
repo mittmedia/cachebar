@@ -155,7 +155,7 @@ module HTTParty
     end
 
     def update_cache_async(expires = nil)
-      data_store.update_async(normalized_uri, (expires || HTTPCache.apis[uri.host][:expire_in]))
+      data_store.update_async(normalized_uri, (expires || HTTPCache.apis[uri.host][:expire_in]), options[:headers])
     end
 
     def data_store
