@@ -80,7 +80,7 @@ module HTTParty
               store_in_backup({code: httparty_response.code, body: httparty_response.body})
               httparty_response
             else
-              log_message("Response isn't satisfactory")
+              log_message("Response isn't satisfactory: #{httparty_response.response.class.name}")
               retrieve_and_store_backup(httparty_response)
             end
           rescue *exceptions => e
