@@ -22,9 +22,9 @@ module HTTParty
 
     self.perform_caching = false
     self.grace = false
-    self.grace_expire_in = 60 * 60 * 3
+    self.grace_expire_in = 60 * 60 * 3 # 3 hours
     self.apis = {}
-    self.timeout_length = 5 # 5 seconds
+    self.timeout_length = 10 # 10 seconds
     self.cache_stale_backup_time = 300 # 5 minutes
 
     delegate :response_exists?,
@@ -58,7 +58,7 @@ module HTTParty
           log_message("Retrieving response from cache")
           response_from(get_response)
         elsif graceable?
-          log_message("Backup exists")
+          log_message("Retrieving response from grace")
           update_cache_async
           response_from(get_backup)
         else
@@ -80,12 +80,14 @@ module HTTParty
               store_in_backup({code: httparty_response.code, body: httparty_response.body})
               httparty_response
             else
+              log_message("Response isn't satisfactory")
               retrieve_and_store_backup(httparty_response)
             end
           rescue *exceptions => e
             if exception_callback && exception_callback.respond_to?(:call)
               exception_callback.call(e, api_key_name, normalized_uri)
             end
+            log_message("Request caused exception")
             retrieve_and_store_backup
           end
         end
@@ -103,7 +105,7 @@ module HTTParty
     end
 
     def graceable?
-      log_message("cache option: #{self.options[:cache]}")
+      log_message("Request cache option: #{self.options[:cache] != false}")
       HTTPCache.grace && backup_exists? && self.options[:cache] != false
     end
 
