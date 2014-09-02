@@ -68,6 +68,10 @@ module HTTParty
               perform_without_caching
             end
             httparty_response.parsed_response
+            if self.options[:force_encoding]
+              log_message("Forcing encoding: #{self.options[:force_encoding]}")
+              httparty_response.body.force_encoding(self.options[:force_encoding])
+            end
             if httparty_response.response.is_a?(Net::HTTPSuccess)
               log_message("Storing good response in cache")
               store_in_cache({code: httparty_response.code, body: httparty_response.body})
