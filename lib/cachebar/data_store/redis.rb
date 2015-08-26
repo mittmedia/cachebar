@@ -27,14 +27,14 @@ module CacheBar
       end
 
       def update_async(url, interval, headers)
-        Rails.logger.debug("[HTTPCache]: Update async #{cache_key_name}-#{url}")
+        HTTParty::HTTPCache.logger.debug("[HTTPCache]: Update async #{cache_key_name}-#{url}")
         Resque.enqueue(UpdateRedisCache, cache_key_name, backup_key_name, uri_hash, url, interval, headers)
       end
 
       class UpdateRedisCache
         @queue = :update_redis_cache
         def self.perform(cache_key_name, backup_key_name, uri_hash, url, interval, headers)
-          Resque.logger.info "[HTTPCache]: Updating #{url}"
+          HTTParty::HTTPCache.logger.debug "[HTTPCache]: Updating #{url}"
           response_body = HTTParty.get(url, {cache: false, headers: headers}).parsed_response
         end
       end
