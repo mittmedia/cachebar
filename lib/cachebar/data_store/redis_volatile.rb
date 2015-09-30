@@ -9,7 +9,7 @@ module CacheBar
       def backup_exists?
         client.exists(backup_key_name)
       end
-      
+
       def get_backup
         JSON.parse(client.get(backup_key_name), symbolize_names: true)
       end
