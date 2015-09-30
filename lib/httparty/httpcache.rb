@@ -1,19 +1,39 @@
 module HTTParty
   module HTTPCache
+    # TODO:
+    # * Add possibility to set array of Net::* response codes to cache
+    # * Add rdoc comments
+    # * Refactor perform_with_caching
+    # * Refactor retrieve_and_store_backup
+
     class NoResponseError < StandardError; end
 
-    mattr_accessor  :perform_caching, 
+    mattr_accessor  :perform_caching,
+                    :grace,
+                    :grace_expire_in,
                     :apis,
-                    :logger, 
+                    :logger,
                     :redis,
-                    :timeout_length, 
+                    :timeout_length,
                     :cache_stale_backup_time,
+                    :use_cache_backup,
                     :exception_callback
 
+    mattr_reader :data_store_class
+
     self.perform_caching = false
+    self.grace = false
+    self.grace_expire_in = 60 * 60 * 3 # 3 hours
     self.apis = {}
-    self.timeout_length = 5 # 5 seconds
+    self.timeout_length = 10 # 10 seconds
     self.cache_stale_backup_time = 300 # 5 minutes
+    self.use_cache_backup = true
+
+    delegate :response_exists?,
+             :get_response,
+             :backup_exists?,
+             :get_backup,
+             :to => :data_store
 
     def self.included(base)
       base.class_eval do
@@ -21,11 +41,28 @@ module HTTParty
       end
     end
 
+    def self.data_store_class=(data_store_name_or_class)
+      case data_store_name_or_class
+      when Symbol
+        require "cachebar/data_store/#{data_store_name_or_class}"
+        @@data_store_class = CacheBar::DataStore.const_get(data_store_name_or_class.to_s.camelcase.to_sym)
+      when Class
+        @@data_store_class = data_store_name_or_class
+      else
+        raise ArgumentError, "data store must be a symbol or a class"
+      end
+    end
+
+    #TODO: Refactor
     def perform_with_caching
       if cacheable?
-        if response_in_cache?
+        if response_exists?
           log_message("Retrieving response from cache")
-          response_from(response_body_from_cache)
+          response_from(get_response)
+        elsif graceable?
+          log_message("Retrieving response from grace")
+          update_cache_async
+          response_from(get_backup)
         else
           validate
           begin
@@ -33,18 +70,30 @@ module HTTParty
               perform_without_caching
             end
             httparty_response.parsed_response
+            if self.options[:force_encoding]
+              log_message("Forcing encoding: #{self.options[:force_encoding]}")
+              httparty_response.body.force_encoding(self.options[:force_encoding])
+            end
             if httparty_response.response.is_a?(Net::HTTPSuccess)
               log_message("Storing good response in cache")
-              store_in_cache(httparty_response.body)
-              store_backup(httparty_response.body)
+              store_in_cache({code: httparty_response.code, body: httparty_response.body})
+              store_in_backup({code: httparty_response.code, body: httparty_response.body})
+              httparty_response
+            elsif httparty_response.response.is_a?(Net::HTTPNotFound)
+              log_message("Resource not found")
+              log_message("Storing 404 response in cache")
+              store_in_cache({code: httparty_response.code, body: httparty_response.body})
+              store_in_backup({code: httparty_response.code, body: httparty_response.body})
               httparty_response
             else
+              log_message("Response isn't satisfactory: #{httparty_response.response.class.name}")
               retrieve_and_store_backup(httparty_response)
             end
           rescue *exceptions => e
             if exception_callback && exception_callback.respond_to?(:call)
-              exception_callback.call(e, redis_key_name, normalized_uri)
+              exception_callback.call(e, api_key_name, normalized_uri)
             end
+            log_message("Request caused exception")
             retrieve_and_store_backup
           end
         end
@@ -54,23 +103,31 @@ module HTTParty
       end
     end
 
-    protected
-    
+    def backupable?
+      HTTPCache.use_cache_backup && backup_exists?
+    end
+
     def cacheable?
-      HTTPCache.perform_caching && HTTPCache.apis.keys.include?(uri.host) &&
-        http_method == Net::HTTP::Get
+      #raise (HTTPCache.perform_caching && HTTPCache.apis.keys.include?(uri.host) && http_method == Net::HTTP::Get).inspect
+      HTTPCache.perform_caching && HTTPCache.apis.keys.include?(uri.host) && http_method == Net::HTTP::Get && self.options[:cachebar_cache] != false
     end
 
-    def response_from(response_body)
-      HTTParty::Response.new(self, OpenStruct.new(:body => response_body), lambda {parse_response(response_body)})
+    def graceable?
+      log_message("Request cachebar_cache option: #{self.options[:cachebar_cache] != false}")
+      backupable? && HTTPCache.grace
     end
 
+    def response_from(response_hash)
+      HTTParty::Response.new(self, OpenStruct.new(:body => response_hash[:body], :code => response_hash[:code]), lambda {parse_response(response_hash[:body])})
+    end
+
+    #TODO: Refactor
     def retrieve_and_store_backup(httparty_response = nil)
-      if backup_exists?
+      if backupable?
         log_message('using backup')
-        response_body = backup_response
-        store_in_cache(response_body, cache_stale_backup_time)
-        response_from(response_body)
+        response_hash = get_backup
+        store_in_cache({code: response_hash[:code], body: response_hash[:body]}, cache_stale_backup_time)
+        response_from(response_hash)
       elsif httparty_response
         httparty_response
       else
@@ -92,44 +149,28 @@ module HTTParty
       query.split('&').sort.join('&') unless query.blank?
     end
 
-    def cache_key_name
-      @cache_key_name ||= "api-cache:#{redis_key_name}:#{uri_hash}"
-    end
-
     def uri_hash
       @uri_hash ||= Digest::MD5.hexdigest(normalized_uri)
     end
 
-    def response_in_cache?
-      redis.exists(cache_key_name)
+    def store_in_cache(response_hash, expires = nil)
+      data_store.store_response(response_hash, (expires || HTTPCache.apis[uri.host][:expire_in]))
     end
 
-    def backup_key
-      "api-cache:#{redis_key_name}"
+    #TODO: This should get grace interval in future
+    def store_in_backup(response_hash)
+      data_store.store_backup(response_hash, HTTPCache.grace_expire_in) if HTTPCache.use_cache_backup
     end
 
-    def backup_response
-      redis.hget(backup_key, uri_hash)
+    def update_cache_async(expires = nil)
+      data_store.update_async(normalized_uri, (expires || HTTPCache.apis[uri.host][:expire_in]), options[:headers])
     end
 
-    def backup_exists?
-      redis.exists(backup_key) && redis.hexists(backup_key, uri_hash)
+    def data_store
+      @data_store ||= data_store_class.new(api_key_name, uri_hash)
     end
 
-    def response_body_from_cache
-      redis.get(cache_key_name)
-    end
-
-    def store_in_cache(response_body, expires = nil)
-      redis.set(cache_key_name, response_body)
-      redis.expire(cache_key_name, (expires || HTTPCache.apis[uri.host][:expire_in]))
-    end
-
-    def store_backup(response_body)
-      redis.hset(backup_key, uri_hash, response_body)
-    end
-    
-    def redis_key_name
+    def api_key_name
       HTTPCache.apis[uri.host][:key_name]
     end
 
@@ -137,21 +178,15 @@ module HTTParty
       logger.info("[HTTPCache]: #{message} for #{normalized_uri} - #{uri_hash.inspect}") if logger
     end
 
+    # We could just include Timeout, but that would add a private #timeout and I like to see what's going on
     def timeout(seconds, &block)
-      if defined?(SystemTimer)
-        SystemTimer.timeout_after(seconds, &block)
-      else
-        options[:timeout] = seconds
+      Timeout::timeout(seconds, Timeout::Error) do
         yield
       end
     end
 
     def exceptions
-      if (RUBY_VERSION.split('.')[1].to_i >= 9) && defined?(Psych::SyntaxError)
-        [StandardError, Timeout::Error, Psych::SyntaxError]
-      else
-        [StandardError, Timeout::Error]
-      end
+      [StandardError, Timeout::Error]
     end
   end
 end
