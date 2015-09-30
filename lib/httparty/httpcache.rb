@@ -8,14 +8,15 @@ module HTTParty
 
     class NoResponseError < StandardError; end
 
-    mattr_accessor  :perform_caching, 
+    mattr_accessor  :perform_caching,
                     :grace,
                     :grace_expire_in,
                     :apis,
-                    :logger, 
+                    :logger,
                     :redis,
-                    :timeout_length, 
+                    :timeout_length,
                     :cache_stale_backup_time,
+                    :use_cache_backup,
                     :exception_callback
 
     mattr_reader :data_store_class
@@ -26,6 +27,7 @@ module HTTParty
     self.apis = {}
     self.timeout_length = 10 # 10 seconds
     self.cache_stale_backup_time = 300 # 5 minutes
+    self.use_cache_backup = true
 
     delegate :response_exists?,
              :get_response,
@@ -101,16 +103,18 @@ module HTTParty
       end
     end
 
+    def backupable?
+      HTTPCache.use_cache_backup && backup_exists?
+    end
 
-    
     def cacheable?
       #raise (HTTPCache.perform_caching && HTTPCache.apis.keys.include?(uri.host) && http_method == Net::HTTP::Get).inspect
-      HTTPCache.perform_caching && HTTPCache.apis.keys.include?(uri.host) && http_method == Net::HTTP::Get
+      HTTPCache.perform_caching && HTTPCache.apis.keys.include?(uri.host) && http_method == Net::HTTP::Get && self.options[:cachebar_cache] != false
     end
 
     def graceable?
-      log_message("Request cache option: #{self.options[:cache] != false}")
-      HTTPCache.grace && backup_exists? && self.options[:cache] != false
+      log_message("Request cachebar_cache option: #{self.options[:cachebar_cache] != false}")
+      backupable? && HTTPCache.grace
     end
 
     def response_from(response_hash)
@@ -119,7 +123,7 @@ module HTTParty
 
     #TODO: Refactor
     def retrieve_and_store_backup(httparty_response = nil)
-      if backup_exists?
+      if backupable?
         log_message('using backup')
         response_hash = get_backup
         store_in_cache({code: response_hash[:code], body: response_hash[:body]}, cache_stale_backup_time)
@@ -155,7 +159,7 @@ module HTTParty
 
     #TODO: This should get grace interval in future
     def store_in_backup(response_hash)
-      data_store.store_backup(response_hash, HTTPCache.grace_expire_in)
+      data_store.store_backup(response_hash, HTTPCache.grace_expire_in) if HTTPCache.use_cache_backup
     end
 
     def update_cache_async(expires = nil)
@@ -165,7 +169,7 @@ module HTTParty
     def data_store
       @data_store ||= data_store_class.new(api_key_name, uri_hash)
     end
-    
+
     def api_key_name
       HTTPCache.apis[uri.host][:key_name]
     end
