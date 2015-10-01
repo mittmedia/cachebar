@@ -113,7 +113,7 @@ module HTTParty
     end
 
     def graceable?
-      log_message("Request cachebar_cache option: #{self.options[:cachebar_cache] != false}")
+      log_message("Request cachebar_grace option: #{self.options[:cachebar_grace] != false}")
       backupable? && HTTPCache.grace
     end
 
