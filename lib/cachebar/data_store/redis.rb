@@ -35,7 +35,7 @@ module CacheBar
         @queue = :cachebar_update_redis_cache
         def self.perform(cache_key_name, backup_key_name, uri_hash, url, interval, headers)
           HTTParty::HTTPCache.logger.debug "[HTTPCache]: Updating #{url}"
-          response_body = HTTParty.get(url, {cachebar_cache: false, headers: headers}).parsed_response
+          response_body = HTTParty.get(url, {cachebar_grace: false, headers: headers}).parsed_response
         end
       end
     end
