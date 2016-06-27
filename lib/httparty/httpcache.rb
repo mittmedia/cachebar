@@ -175,7 +175,7 @@ module HTTParty
     end
 
     def log_message(message)
-      logger.info("[HTTPCache]: #{message} for #{normalized_uri} - #{uri_hash.inspect}") if logger
+      logger.debug("[HTTPCache]: #{message} for #{normalized_uri} - #{uri_hash.inspect}") if logger
     end
 
     # We could just include Timeout, but that would add a private #timeout and I like to see what's going on
